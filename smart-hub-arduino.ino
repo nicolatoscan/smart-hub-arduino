@@ -26,10 +26,10 @@ void sendCommand(String s, int d)
 	serialPrintln(s);
 	espSerial.println(s);
 	delay(d);
-	readResponse(s);
+	readResponse();
 }
 
-void readResponse(String name)
+void readResponse()
 {
 	while (espSerial.available())
 	{
@@ -48,23 +48,53 @@ void setup()
 	//CONNECT TO WIFI AND START SERVER
 	sendCommand("AT+RST", 5000);
 	//SendCommand("AT+CWJAP=\"wifi\",\"password\"", 5000);
-	char connectCommand[80];
-	strcpy(connectCommand, "AT+CWJAP=\"");
-	strcat(connectCommand, WIFI_SSID);
-	strcat(connectCommand, "\",\"");
-	strcat(connectCommand, WIFI_PASSWORD);
-	strcat(connectCommand, "\"");
-
-	sendCommand(connectCommand, 5000);
+	String wifiSSID(WIFI_SSID);
+	String wifiPassword(WIFI_PASSWORD);
+	sendCommand("AT+CWJAP=\"" + wifiSSID + "\",\"" + wifiPassword + "\"", 5000);
 	sendCommand("AT+CWMODE=1", 1000);
 	sendCommand("AT+CIFSR", 1000);
 	sendCommand("AT+CIPMUX=1", 1000);
 	sendCommand("AT+CIPSERVER=1,80", 1000);
 
 	serialPrintln(" -- SET-UP COMPLETED");
-	
 }
 
 void loop()
 {
+	readIncomingRequest();
+	delay(200);
 }
+
+int connectionId = -1;
+void readIncomingRequest()
+{
+	if (espSerial.available())
+	{
+		if (espSerial.find("+IPD,")) //HTTP CALL
+		{
+			delay(10);
+			connectionId = espSerial.read() - 48;
+			if (espSerial.find("GET "))
+			{
+				if (espSerial.read() == '/')
+				{
+					String cmd = espSerial.readStringUntil(' ');
+					serialPrint("COMMAND: ");
+					serialPrintln(cmd);
+				}
+			}
+		}
+	}
+}
+
+void sendResponse()
+{
+}
+
+/*
+0,CONNECT
+
++IPD,0,143:GET /ciao HTTP/1.1
+User-Agent: Wget/1.ve
+
+*/

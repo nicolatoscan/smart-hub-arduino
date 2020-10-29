@@ -26,7 +26,6 @@ void sendCommand(String s, int d)
 	serialPrintln(s);
 	espSerial.println(s);
 	delay(d);
-	readResponse();
 }
 
 void readResponse()
@@ -39,6 +38,11 @@ void readResponse()
 	serialPrintln("");
 }
 
+void sendCommandAndReadResponse(String s, int d) {
+	sendCommand(s, d);
+	readResponse();
+}
+
 void setup()
 {
 	Serial.begin(9600);
@@ -46,15 +50,15 @@ void setup()
 	pinMode(13, OUTPUT);
 
 	//CONNECT TO WIFI AND START SERVER
-	sendCommand("AT+RST", 5000);
+	sendCommandAndReadResponse("AT+RST", 5000);
 	//SendCommand("AT+CWJAP=\"wifi\",\"password\"", 5000);
 	String wifiSSID(WIFI_SSID);
 	String wifiPassword(WIFI_PASSWORD);
-	sendCommand("AT+CWJAP=\"" + wifiSSID + "\",\"" + wifiPassword + "\"", 5000);
-	sendCommand("AT+CWMODE=1", 1000);
-	sendCommand("AT+CIFSR", 1000);
-	sendCommand("AT+CIPMUX=1", 1000);
-	sendCommand("AT+CIPSERVER=1,80", 1000);
+	sendCommandAndReadResponse("AT+CWJAP=\"" + wifiSSID + "\",\"" + wifiPassword + "\"", 5000);
+	sendCommandAndReadResponse("AT+CWMODE=1", 1000);
+	sendCommandAndReadResponse("AT+CIFSR", 1000);
+	sendCommandAndReadResponse("AT+CIPMUX=1", 1000);
+	sendCommandAndReadResponse("AT+CIPSERVER=1,80", 1000);
 
 	serialPrintln(" -- SET-UP COMPLETED");
 }
@@ -65,7 +69,7 @@ void loop()
 	delay(200);
 }
 
-int connectionId = -1;
+String connectionId;
 void readIncomingRequest()
 {
 	if (espSerial.available())
@@ -73,7 +77,7 @@ void readIncomingRequest()
 		if (espSerial.find("+IPD,")) //HTTP CALL
 		{
 			delay(10);
-			connectionId = espSerial.read() - 48;
+			connectionId = espSerial.readStringUntil(',');
 			if (espSerial.find("GET "))
 			{
 				if (espSerial.read() == '/')
@@ -81,14 +85,30 @@ void readIncomingRequest()
 					String cmd = espSerial.readStringUntil(' ');
 					serialPrint("COMMAND: ");
 					serialPrintln(cmd);
+					sendResponse(cmd);
 				}
 			}
 		}
 	}
 }
 
-void sendResponse()
+void sendResponse(String cmd)
 {
+	String json = "{\"cmd\": \"" + cmd + "\"}";
+
+	String res = "HTTP/1.1 200 OK\r\n";
+	res += "Access-Control-Allow-Origin: *\r\n";
+	res += "Connection: keep-alive\r\n";
+	res += "Content-Type: application/json\r\n";
+	res += "\r\n" + json;
+
+	//SEND RESPONSE
+	sendCommand("AT+CIPSEND=" + connectionId + "," + res.length(), 10);
+	sendCommand(res, 10);
+
+	//CLOSE CONNECTION
+	String closeCommand = "AT+CIPCLOSE=" + connectionId; // close the socket connection
+	sendCommand(closeCommand, 10);
 }
 
 /*

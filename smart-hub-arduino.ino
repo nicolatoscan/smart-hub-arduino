@@ -11,20 +11,21 @@ const int relePin2 = PIN2;
 SoftwareSerial espSerial(7, 6);
 void setup()
 {
-	Serial.begin(115200);
+	if (LOG)
+		Serial.begin(115200);
 	espSerial.begin(115200);
 	pinMode(13, OUTPUT);
 	pinMode(relePin1, OUTPUT);
 	pinMode(relePin2, OUTPUT);
 	digitalWrite(relePin1, HIGH);
 	digitalWrite(relePin2, HIGH);
-	sendCommandAndReadResponse("AT+RST", 10000);
+	sendCommandAndReadResponse("AT+RST", 7000);
 	// sendCommandAndReadResponse("AT+CIOBAUD=9600", 1000);
 	//CONNECT TO WIFI AND START SERVER
 	//SendCommand("AT+CWJAP=\"wifi\",\"password\"", 5000);
 	String wifiSSID(WIFI_SSID);
 	String wifiPassword(WIFI_PASSWORD);
-	sendCommandAndReadResponse("AT+CWJAP=\"" + wifiSSID + "\",\"" + wifiPassword + "\"", 10000);
+	sendCommandAndReadResponse("AT+CWJAP=\"" + wifiSSID + "\",\"" + wifiPassword + "\"", 7000);
 	sendCommandAndReadResponse("AT+CWMODE=1", 1000);
 	sendCommandAndReadResponse("AT+CIFSR", 1000);
 	sendCommandAndReadResponse("AT+CIPMUX=1", 1000);

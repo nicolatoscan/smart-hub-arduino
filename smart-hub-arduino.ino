@@ -3,7 +3,40 @@
 
 #define LOG 1
 
+bool releStatus1 = true;
+bool releStatus2 = true;
+const int relePin1 = PIN3;
+const int relePin2 = PIN2;
+
 SoftwareSerial espSerial(7, 6);
+void setup()
+{
+	Serial.begin(115200);
+	espSerial.begin(115200);
+	pinMode(13, OUTPUT);
+	pinMode(relePin1, OUTPUT);
+	pinMode(relePin2, OUTPUT);
+	digitalWrite(relePin1, HIGH);
+	digitalWrite(relePin2, HIGH);
+	sendCommandAndReadResponse("AT+RST", 10000);
+	// sendCommandAndReadResponse("AT+CIOBAUD=9600", 1000);
+	//CONNECT TO WIFI AND START SERVER
+	//SendCommand("AT+CWJAP=\"wifi\",\"password\"", 5000);
+	String wifiSSID(WIFI_SSID);
+	String wifiPassword(WIFI_PASSWORD);
+	sendCommandAndReadResponse("AT+CWJAP=\"" + wifiSSID + "\",\"" + wifiPassword + "\"", 10000);
+	sendCommandAndReadResponse("AT+CWMODE=1", 1000);
+	sendCommandAndReadResponse("AT+CIFSR", 1000);
+	sendCommandAndReadResponse("AT+CIPMUX=1", 1000);
+	sendCommandAndReadResponse("AT+CIPSERVER=1,80", 1000);
+
+	serialPrintln(" -- SET-UP COMPLETED");
+}
+void loop()
+{
+	readIncomingRequest();
+	delay(200);
+}
 
 void serialPrintln(String s)
 {
@@ -38,35 +71,10 @@ void readResponse()
 	serialPrintln("");
 }
 
-void sendCommandAndReadResponse(String s, int d) {
+void sendCommandAndReadResponse(String s, int d)
+{
 	sendCommand(s, d);
 	readResponse();
-}
-
-void setup()
-{
-	Serial.begin(9600);
-	espSerial.begin(9600);
-	pinMode(13, OUTPUT);
-
-	//CONNECT TO WIFI AND START SERVER
-	sendCommandAndReadResponse("AT+RST", 5000);
-	//SendCommand("AT+CWJAP=\"wifi\",\"password\"", 5000);
-	String wifiSSID(WIFI_SSID);
-	String wifiPassword(WIFI_PASSWORD);
-	sendCommandAndReadResponse("AT+CWJAP=\"" + wifiSSID + "\",\"" + wifiPassword + "\"", 5000);
-	sendCommandAndReadResponse("AT+CWMODE=1", 1000);
-	sendCommandAndReadResponse("AT+CIFSR", 1000);
-	sendCommandAndReadResponse("AT+CIPMUX=1", 1000);
-	sendCommandAndReadResponse("AT+CIPSERVER=1,80", 1000);
-
-	serialPrintln(" -- SET-UP COMPLETED");
-}
-
-void loop()
-{
-	readIncomingRequest();
-	delay(200);
 }
 
 String connectionId;
@@ -85,6 +93,7 @@ void readIncomingRequest()
 					String cmd = espSerial.readStringUntil(' ');
 					serialPrint("COMMAND: ");
 					serialPrintln(cmd);
+					handleCommand(cmd);
 					sendResponse(cmd);
 				}
 			}
@@ -92,23 +101,35 @@ void readIncomingRequest()
 	}
 }
 
+void handleCommand(String cmd)
+{
+	if (cmd == "reley1")
+	{
+		releStatus1 = !releStatus1;
+		digitalWrite(relePin1, releStatus1 ? HIGH : LOW);
+	}
+	else if (cmd == "reley2")
+	{
+		releStatus2 = !releStatus2;
+		digitalWrite(relePin2, releStatus2 ? HIGH : LOW);
+	}
+}
+
 void sendResponse(String cmd)
 {
-	String json = "{\"cmd\": \"" + cmd + "\"}";
-
-	String res = "HTTP/1.1 200 OK\r\n";
-	res += "Access-Control-Allow-Origin: *\r\n";
-	res += "Connection: keep-alive\r\n";
-	res += "Content-Type: application/json\r\n";
-	res += "\r\n" + json;
+	String json = "{ \"cmd\":\"" + cmd + "\", \"reley1\":\"" + (releStatus1 ? "1" : "0") + "\", \"reley2\":\"" + (releStatus2 ? "1" : "0") + "\"}\n";
+	String res = "HTTP/1.1 200 OK\n";
+	res += "Content-Type: application/json\n";
+	res += "Connection: close\n";
+	res += "\n" + json;
 
 	//SEND RESPONSE
-	sendCommand("AT+CIPSEND=" + connectionId + "," + res.length(), 10);
-	sendCommand(res, 10);
+	sendCommandAndReadResponse("AT+CIPSEND=" + connectionId + "," + res.length(), 10);
+	sendCommandAndReadResponse(res, 10);
 
 	//CLOSE CONNECTION
 	String closeCommand = "AT+CIPCLOSE=" + connectionId; // close the socket connection
-	sendCommand(closeCommand, 10);
+	sendCommandAndReadResponse(closeCommand, 10);
 }
 
 /*

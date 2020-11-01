@@ -118,7 +118,7 @@ void handleCommand(String cmd)
 
 void sendResponse(String cmd)
 {
-	String json = "{ \"cmd\":\"" + cmd + "\", \"reley1\":\"" + (releStatus1 ? "true" : "false") + "\", \"reley2\":\"" + (releStatus2 ? "true" : "false") + "\"}\n";
+	String json = "{ \"cmd\":\"" + cmd + "\", \"reley1\":" + (releStatus1 ? "true" : "false") + ", \"reley2\":" + (releStatus2 ? "true" : "false") + "}\n";
 	String res = "HTTP/1.1 200 OK\n";
 	res += "Content-Type: application/json\n";
 	res += "Connection: close\n";
